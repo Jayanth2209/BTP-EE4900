@@ -1,0 +1,27 @@
+
+// 27x35 Large signed Multiplier with clock enable. This infers 2 DSP Slices
+parameter AW = 27; // input data width-<a_input>
+parameter BW = 35; // input data width-<b_input>
+wire signed [AW-1:0] <a_input>;
+wire signed [BW-1:0] <b_input>;
+wire <clk>;
+wire <clken>;
+wire signed [AW+BW-1:0] <product>;
+wire signed [AW+BW-1:0] <mult>;
+reg signed [AW+BW-1:0] <p0>,<p1>,<p2>,<p3>;
+
+assign <mult>	= <a_input> * <b_input>;
+always@(posedge <clk>)
+begin
+	if(<clken> == 1) begin //Clock enable
+	  <p0> <= <mult>;
+  	<p1> <= <p0>;
+  	<p2> <= <p1>;
+  	<p3> <= <p2>;
+	end
+end
+//4 Pipeline registers are used. Here minimum 2 pipeline registers are required.
+//No of pipeline registers required depends on the large multiplier size
+assign <product> = <p3>;
+					
+					

@@ -1,11 +1,11 @@
 package Tb;
 
-import MAC32::*;
+import MAC8::*;
 
 (*synthesize*)
 module mkTb(Empty);
 
-    Ifc_MAC32 dut <- mkMAC32;
+    Ifc_MAC8 dut <- mkMAC8;
 
     Reg#(Bit#(2)) stage <- mkRegA(0);
 
@@ -25,8 +25,8 @@ module mkTb(Empty);
 
     rule read_output (stage == 1);
         let res = dut.mac_result;
-        $display("MAC Result: %h\n", res);
-        //$display("MAC Result: %h\nCycles: %d\n", res[63:0], res[67:64]);
+        $display("MAC Result: %h %h %h %h\n", res[63:48], res[47:32], res[31:16], res[15:0]);
+        //$display("MAC Result: %h %h %h %h\nCycles: %d\n", res[63:48], res[47:32], res[31:16], res[15:0], res[67:64]);
         stage <= 2;
         $finish(0);
     endrule

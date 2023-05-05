@@ -1,7 +1,7 @@
 #!/bin/sh
 
-TOPMODULE="mkMAC32"
-TOPFILE="MAC32"
+TOPMODULE="mkMAC8"
+TOPFILE="MAC8"
 
 bsc -u -verilog -elab -keep-fires -aggressive-conditions -no-warn-action-shadowing -g $TOPMODULE $TOPFILE.bsv
 

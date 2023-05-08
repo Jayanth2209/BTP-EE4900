@@ -14,10 +14,12 @@ module mkTb(Empty);
         Bit#(64) m1 = 'h47dfe10869d1a42f;
         Bit#(64) m2 = 'h5632ecb93e48d7cb;
         Bit#(64) a = 'h348afe5970f6e613;
-  
-        $display("\nInputs: M1 = %h, M2 = %h, and A = %h\n", m1, m2, a);  
 
-        dut.get_inputs(m1, m2, a);
+        Bit#(1) mode = 'h1;
+
+        $display("\nInputs: M1 = %h, M2 = %h, A = %h, and Mode = %h\n", m1, m2, a, mode);    
+
+        dut.get_inputs(m1, m2, a, mode);
 
         stage <= 1;
 

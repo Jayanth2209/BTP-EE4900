@@ -6,7 +6,7 @@ package MAC64;
     import SpecialFIFOs :: *;
 
     interface Ifc_MAC64;
-        method Action get_inputs(Bit#(64) multiplicand1, Bit#(64) multiplicand2, Bit#(64) addend);
+        method Action get_inputs(Bit#(64) multiplicand1, Bit#(64) multiplicand2, Bit#(64) addend, Bit#(1) mode);
         method Bit#(128) mac_result;
         //method Bit#(132) mac_result;
     endinterface: Ifc_MAC64
@@ -69,21 +69,37 @@ package MAC64;
 
     endfunction
 
+    function Bit#(128) mac_32 (Vector#(8, Bit#(32)) partial, Bit#(64) addend);
+
+        Bit#(64) mac_32_1 = extend(partial[0]) +
+                            ((extend(partial[1]) + extend(partial[2])) << 16) +
+                            ((extend(partial[3])) << 32) +
+                            extend(addend[31:0]);
+
+        Bit#(64) mac_32_2 = extend(partial[4]) +
+                            ((extend(partial[5]) + extend(partial[6])) << 16) +
+                            ((extend(partial[7])) << 32) +
+                            extend(addend[63:32]);
+
+        return {mac_32_2, mac_32_1};
+
+    endfunction
+
     (*synthesize*)
-    (*descending_urgency = "get_inputs, rl_generate_partials_1, rl_generate_partials_2, rl_mac_64, mac_result"*)
+    (*descending_urgency = "get_inputs, rl_generate_partials_1, mac_result"*)
     module mkMAC64(Ifc_MAC64);
+
+        Reg#(Bit#(1)) mode_r <- mkReg(0);
 
         FIFOF#(Tuple3#(Bit#(64), Bit#(64), Bit#(64))) mac_inputs_1 <- mkPipelineFIFOF;
 
-        FIFOF#(Vector#(8, Bit#(32))) partial_product_1 <- mkPipelineFIFOF;
+        FIFOF#(Tuple2#(Vector#(8, Bit#(32)), Bit#(64))) partial_product_1 <- mkPipelineFIFOF;
 
         FIFOF#(Tuple3#(Bit#(64), Bit#(64), Bit#(64))) mac_inputs_2 <- mkPipelineFIFOF;
 
         FIFOF#(Tuple2#(Vector#(8, Bit#(32)), Bit#(64))) partial_product_2 <- mkPipelineFIFOF;
 
         FIFOF#(Bit#(128)) mac_output <- mkPipelineFIFOF;
-
-        Reg#(Bool) flag <- mkReg(False);
 
         // Reg#(Bit#(4)) counter <- mkReg(0);
         // rule cycle_count;
@@ -92,28 +108,34 @@ package MAC64;
 
         rule rl_generate_partials_1;
             let mac_i = mac_inputs_1.first();
-            partial_product_1.enq(generate_partials_1(tpl_1(mac_i), tpl_2(mac_i)));
+            partial_product_1.enq(tuple2(generate_partials_1(tpl_1(mac_i), tpl_2(mac_i)), tpl_3(mac_i)));
             mac_inputs_1.deq();
             mac_inputs_2.enq(mac_i);
-            flag <= True;
         endrule: rl_generate_partials_1
 
-        rule rl_generate_partials_2 (flag);
+        rule rl_generate_partials_2 (mode_r == 'h1);
             let mac_i = mac_inputs_2.first();
             partial_product_2.enq(tuple2(generate_partials_2(tpl_1(mac_i), tpl_2(mac_i)), tpl_3(mac_i)));
             mac_inputs_2.deq();
         endrule: rl_generate_partials_2
 
-        rule rl_mac_64;
+        rule rl_mac_64 (mode_r == 'h1);
             let pp1 = partial_product_1.first();
             let pp2 = partial_product_2.first();
-            mac_output.enq(mac_64(pp1, tpl_1(pp2), tpl_2(pp2)));
+            mac_output.enq(mac_64(tpl_1(pp1), tpl_1(pp2), tpl_2(pp2)));
             partial_product_1.deq();
             partial_product_2.deq();
         endrule: rl_mac_64
 
-        method Action get_inputs(Bit#(64) multiplicand1, Bit#(64) multiplicand2, Bit#(64) addend);
+        rule rl_mac_32 (mode_r == 'h0);
+            let pp = partial_product_1.first();
+            mac_output.enq(mac_32(tpl_1(pp), tpl_2(pp)));
+            partial_product_1.deq();
+        endrule: rl_mac_32
+
+        method Action get_inputs(Bit#(64) multiplicand1, Bit#(64) multiplicand2, Bit#(64) addend, Bit#(1) mode);
             mac_inputs_1.enq(tuple3(multiplicand1, multiplicand2, addend));
+            mode_r <= mode;
         endmethod
 
         method Bit#(128) mac_result;

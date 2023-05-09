@@ -6,9 +6,9 @@ package MAC64;
     import SpecialFIFOs :: *;
 
     interface Ifc_MAC64;
-        method Action get_inputs(Bit#(64) multiplicand1, Bit#(64) multiplicand2, Bit#(64) addend, Bit#(2) mode);
-        //method Bit#(128) mac_result;
-        method Bit#(132) mac_result;
+        method Action get_inputs(Bit#(64) multiplicand1, Bit#(64) multiplicand2, Bit#(64) addend);
+        method Bit#(128) mac_result;
+        //method Bit#(132) mac_result;
     endinterface: Ifc_MAC64
 
     function Vector#(16, Bit#(32)) generate_partials (Bit#(64) multiplicand1, Bit#(64) multiplicand2);
@@ -65,51 +65,22 @@ package MAC64;
 
     endfunction
 
-    function Bit#(128) mac_32 (Vector#(16, Bit#(32)) partial, Bit#(64) addend);
-
-        Bit#(64) mac_32_1 = extend(partial[0]) +
-                            ((extend(partial[1]) + extend(partial[2])) << 16) +
-                            ((extend(partial[4])) << 32) +
-                            extend(addend[31:0]);
-
-        Bit#(64) mac_32_2 = extend(partial[11]) +
-                            ((extend(partial[13]) + extend(partial[14])) << 16) +
-                            ((extend(partial[15])) << 32) +
-                            extend(addend[63:32]);
-
-        return {mac_32_2, mac_32_1};
-
-    endfunction
-
-    function Bit#(128) mac_16 (Vector#(16, Bit#(32)) partial, Bit#(64) addend);
-        
-        Bit#(32) mac_16_1 = partial[0] + extend(addend[15:0]);
-        Bit#(32) mac_16_2 = partial[4] + extend(addend[31:16]);
-        Bit#(32) mac_16_3 = partial[11] + extend(addend[47:32]);
-        Bit#(32) mac_16_4 = partial[15] + extend(addend[63:48]);
-
-        return {mac_16_4, mac_16_3, mac_16_2, mac_16_1};
-
-    endfunction
-
     (*synthesize*)
-    (*descending_urgency = "get_inputs, rl_generate_partials, mac_result"*)
+    (*descending_urgency = "get_inputs, rl_generate_partials, rl_mac_64_1, rl_mac_64_2, mac_result"*)
     module mkMAC64(Ifc_MAC64);
-
-        Reg#(Bit#(2)) mode_r <- mkReg(0);
 
         FIFOF#(Tuple3#(Bit#(64), Bit#(64), Bit#(64))) mac_inputs <- mkPipelineFIFOF;
 
         FIFOF#(Tuple2#(Vector#(16, Bit#(32)), Bit#(64))) partial_product <- mkPipelineFIFOF;
-        
+
         FIFOF#(Tuple3#(Bit#(128), Vector#(16, Bit#(32)), Bit#(64))) partial_sum <- mkPipelineFIFOF;
 
         FIFOF#(Bit#(128)) mac_output <- mkPipelineFIFOF;
 
-        Reg#(Bit#(4)) counter <- mkReg(0);
-        rule cycle_count;
-            counter <= counter + 1;
-        endrule
+        // Reg#(Bit#(4)) counter <- mkReg(0);
+        // rule cycle_count;
+        //     counter <= counter + 1;
+        // endrule
 
         rule rl_generate_partials;
             let mac_i = mac_inputs.first();
@@ -117,44 +88,31 @@ package MAC64;
             mac_inputs.deq();
         endrule: rl_generate_partials
 
-        rule rl_mac_64_1 (mode_r == 'h2);
+        rule rl_mac_64_1;
             let pp = partial_product.first();
             partial_sum.enq(tuple3(mac_64_1(tpl_1(pp)), tpl_1(pp), tpl_2(pp)));
             partial_product.deq();
         endrule: rl_mac_64_1
 
-        rule rl_mac_64_2 (mode_r == 'h2);
+        rule rl_mac_64_2;
             let ps = partial_sum.first();
             mac_output.enq(mac_64_2(tpl_1(ps), tpl_2(ps), tpl_3(ps)));
             partial_sum.deq();
         endrule: rl_mac_64_2
 
-        rule rl_mac_32 (mode_r == 'h1);
-            let pp = partial_product.first();
-            mac_output.enq(mac_32(tpl_1(pp), tpl_2(pp)));
-            partial_product.deq();
-        endrule: rl_mac_32
-
-        rule rl_mac_16 (mode_r == 'h0);
-            let mac16 = partial_product.first();
-            mac_output.enq(mac_16(tpl_1(mac16), tpl_2(mac16)));
-            partial_product.deq();
-        endrule: rl_mac_16
-
-        method Action get_inputs(Bit#(64) multiplicand1, Bit#(64) multiplicand2, Bit#(64) addend, Bit#(2) mode);
+        method Action get_inputs(Bit#(64) multiplicand1, Bit#(64) multiplicand2, Bit#(64) addend);
             mac_inputs.enq(tuple3(multiplicand1, multiplicand2, addend));
-            mode_r <= mode;
         endmethod
 
-        // method Bit#(128) mac_result;
-        //     let final_mac_result = mac_output.first();
-        //     return final_mac_result;
-        // endmethod
-
-        method Bit#(132) mac_result;
+        method Bit#(128) mac_result;
             let final_mac_result = mac_output.first();
-            return {counter, final_mac_result};
+            return final_mac_result;
         endmethod
+
+        // method Bit#(132) mac_result;
+        //     let final_mac_result = mac_output.first();
+        //     return {counter, final_mac_result};
+        // endmethod
 
     endmodule
 

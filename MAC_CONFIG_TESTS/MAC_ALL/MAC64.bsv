@@ -6,9 +6,9 @@ package MAC64;
     import SpecialFIFOs :: *;
 
     interface Ifc_MAC64;
-        method Action get_inputs(Bit#(64) multiplicand1, Bit#(64) multiplicand2, Bit#(64) addend);
-        method Bit#(128) mac_result;
-        //method Bit#(132) mac_result;
+        method Action get_inputs(Bit#(64) multiplicand1, Bit#(64) multiplicand2, Bit#(64) addend, Bit#(2) mode);
+        //method Bit#(128) mac_result;
+        method Bit#(132) mac_result;
     endinterface: Ifc_MAC64
 
     function Vector#(16, Bit#(32)) generate_partials (Bit#(64) multiplicand1, Bit#(64) multiplicand2);
@@ -42,125 +42,146 @@ package MAC64;
 
     endfunction
 
-    function Bit#(128) mac_64 (Vector#(16, Bit#(32)) partial, Bit#(64) addend);
+    function Bit#(128) mac_64_1 (Vector#(16, Bit#(32)) partial);
 
-        Bit#(128) result = extend(partial[0]) + 
-                           ((extend(partial[1]) + extend(partial[2])) << 16) +
-                           ((extend(partial[3]) + extend(partial[4]) + extend(partial[5])) << 32) +
-                           ((extend(partial[6]) + extend(partial[7]) + extend(partial[8]) + extend(partial[9])) << 48) +
-                           ((extend(partial[10]) + extend(partial[11]) + extend(partial[12])) << 64) + 
-                           ((extend(partial[13]) + extend(partial[14])) << 80) +
-                           (extend(partial[15]) << 96) +
-                           extend(addend);
-
-        return result;
+        Bit#(128) result_1 = extend(partial[0]) +
+                             ((extend(partial[1]) + extend(partial[2])) << 16) +
+                             ((extend(partial[3]) + extend(partial[4]) + extend(partial[5])) << 32) + 
+                             ((extend(partial[6]) + extend(partial[7]) + extend(partial[8]) + extend(partial[9])) << 48);
+        
+        return result_1;
 
     endfunction
 
-    // function Tuple2#(Bit#(64), Bit#(64)) mac_32 (Vector#(16, Reg#(Bit#(32))) partial, Bit#(64) addend);
+    function Bit#(128) mac_64_2 (Bit#(128) part_sum, Vector#(16, Bit#(32)) partial, Bit#(64) addend);
 
-    //     Bit#(64) mac_32_1 = extend(partial[0]) +
-    //                         ((extend(partial[1]) + extend(partial[2])) << 16) +
-    //                         ((extend(partial[3])) << 32) +
-    //                         extend(addend[31:0]);
+        Bit#(128) result_2 = ((extend(partial[10]) + extend(partial[11]) + extend(partial[12])) << 64) + 
+                             ((extend(partial[13]) + extend(partial[14])) << 80) +
+                             (extend(partial[15]) << 96) +
+                             extend(addend) +
+                             part_sum;
 
-    //     Bit#(64) mac_32_2 = extend(partial[11]) +
-    //                         ((extend(partial[13]) + extend(partial[14])) << 16) +
-    //                         ((extend(partial[15])) << 32) +
-    //                         extend(addend[63:32]);
+        return result_2;
 
-    //     return tuple2(mac_32_2, mac_32_1);
+    endfunction
 
-    // endfunction
+    function Bit#(128) mac_32 (Vector#(16, Bit#(32)) partial, Bit#(64) addend);
 
-    // function Tuple4#(Bit#(64), Bit#(64)) mac_16 (Vector#(16, Reg#(Bit#(32))) partial, Bit#(64) addend);
+        Bit#(64) mac_32_1 = extend(partial[0]) +
+                            ((extend(partial[1]) + extend(partial[2])) << 16) +
+                            ((extend(partial[4])) << 32) +
+                            extend(addend[31:0]);
+
+        Bit#(64) mac_32_2 = extend(partial[11]) +
+                            ((extend(partial[13]) + extend(partial[14])) << 16) +
+                            ((extend(partial[15])) << 32) +
+                            extend(addend[63:32]);
+
+        return {mac_32_2, mac_32_1};
+
+    endfunction
+
+    function Bit#(128) mac_16 (Vector#(16, Bit#(32)) partial, Bit#(64) addend);
         
-    //     Bit#(32) mac_16_1 = partial[0] + extend(addend[15:0]);
-    //     Bit#(32) mac_16_2 = partial[4] + extend(addend[31:16]);
-    //     Bit#(32) mac_16_3 = partial[11] + extend(addend[47:32]);
-    //     Bit#(32) mac_16_4 = partial[15] + extend(addend[63:48]);
+        Bit#(32) mac_16_1 = partial[0] + extend(addend[15:0]);
+        Bit#(32) mac_16_2 = partial[4] + extend(addend[31:16]);
+        Bit#(32) mac_16_3 = partial[11] + extend(addend[47:32]);
+        Bit#(32) mac_16_4 = partial[15] + extend(addend[63:48]);
 
-    //     return tuple4(mac_16_4, mac_16_3, mac_16_2, mac_16_1);
+        return {mac_16_4, mac_16_3, mac_16_2, mac_16_1};
 
-    // endfunction
+    endfunction
 
+    function Bit#(128) mac_8 (Bit#(64) multiplicand1, Bit#(64) multiplicand2, Bit#(64) addend);
 
-    // function Vector#(8, Reg#(Bit#(16))) mac_8 (Bit#(64) multiplicand1, Bit#(64) multiplicand2, Bit#(64) addend);
+        Vector#(8, Bit#(16)) mac8;
 
-    //     Vector#(8, Reg#(Bit#(16))) mac8;
+        mac8[0] = extend(multiplicand1[7:0])*extend(multiplicand2[7:0]) + extend(addend[7:0]);
+        mac8[1] = extend(multiplicand1[15:8])*extend(multiplicand2[15:8]) + extend(addend[15:8]);
+        mac8[2] = extend(multiplicand1[23:16])*extend(multiplicand2[23:16]) + extend(addend[23:16]);
+        mac8[3] = extend(multiplicand1[31:24])*extend(multiplicand2[31:24]) + extend(addend[31:24]);
+        mac8[4] = extend(multiplicand1[39:32])*extend(multiplicand2[39:32]) + extend(addend[39:32]);
+        mac8[5] = extend(multiplicand1[47:40])*extend(multiplicand2[47:40]) + extend(addend[47:40]);
+        mac8[6] = extend(multiplicand1[55:48])*extend(multiplicand2[55:48]) + extend(addend[55:48]);
+        mac8[7] = extend(multiplicand1[63:56])*extend(multiplicand2[63:56]) + extend(addend[63:56]);
 
-    //     for (int i = 0; i < 8; i = i + 1) begin
-    //         mac[i] = extend(multiplicand1[7+8*i:8*i])*extend(multiplicand2[7+8*i:8*i]) + extend(addend[7+8*i:8*i]);
-    //     end
+        // for (int i = 0; i < 8; i = i + 1) begin
+        //     mac8[i] = extend(multiplicand1[7+8*i:8*i])*extend(multiplicand2[7+8*i:8*i]) + extend(addend[7+8*i:8*i]);
+        // end
 
-    //     return mac8;
-
-    // endfunction
+        return {mac8[7], mac8[6], mac8[5], mac8[4], mac8[3], mac8[2], mac8[1], mac8[0]};
+            
+    endfunction
 
     (*synthesize*)
-    (*descending_urgency = "get_inputs, rl_generate_partials, rl_mac_64, mac_result"*)
+    (*descending_urgency = "get_inputs, rl_generate_partials, mac_result"*)
     module mkMAC64(Ifc_MAC64);
 
-        //Reg#(Bit#(2)) mode_r <- mkReg(0);
+        Reg#(Bit#(2)) mode_r <- mkReg(0);
 
         FIFOF#(Tuple3#(Bit#(64), Bit#(64), Bit#(64))) mac_inputs <- mkPipelineFIFOF;
 
         FIFOF#(Tuple2#(Vector#(16, Bit#(32)), Bit#(64))) partial_product <- mkPipelineFIFOF;
+        
+        FIFOF#(Tuple3#(Bit#(128), Vector#(16, Bit#(32)), Bit#(64))) partial_sum <- mkPipelineFIFOF;
 
         FIFOF#(Bit#(128)) mac_output <- mkPipelineFIFOF;
 
-        // Reg#(Bit#(4)) counter <- mkReg(0);
-        // rule cycle_count;
-        //     counter <= counter + 1;
-        // endrule
+        Reg#(Bit#(4)) counter <- mkReg(0);
+        rule cycle_count;
+            counter <= counter + 1;
+        endrule
 
-        rule rl_generate_partials;
+        rule rl_generate_partials (mode_r != 'h0);
             let mac_i = mac_inputs.first();
             partial_product.enq(tuple2(generate_partials(tpl_1(mac_i), tpl_2(mac_i)), tpl_3(mac_i)));
             mac_inputs.deq();
         endrule: rl_generate_partials
 
-        rule rl_mac_64;
+        rule rl_mac_64_1 (mode_r == 'h3);
             let pp = partial_product.first();
-            mac_output.enq(mac_64(tpl_1(pp), tpl_2(pp)));
+            partial_sum.enq(tuple3(mac_64_1(tpl_1(pp)), tpl_1(pp), tpl_2(pp)));
             partial_product.deq();
-        endrule: rl_mac_64
+        endrule: rl_mac_64_1
 
-        // rule rl_mac_32;
-        //     let pp = partial_product.first();
-        //     mac_output.enq(mac_32(pp));
-        //     partial_product.deq();
-        // endrule: rl_mac_32
+        rule rl_mac_64_2 (mode_r == 'h3);
+            let ps = partial_sum.first();
+            mac_output.enq(mac_64_2(tpl_1(ps), tpl_2(ps), tpl_3(ps)));
+            partial_sum.deq();
+        endrule: rl_mac_64_2
 
-        // rule rl_mac_16;
-        //     let mac16 = partial_product.first();
-        //     mac_output.enq({tpl_4(mac16) + extend(tpl_5(mac16)[31:16]), tpl_1(mac16) + extend(tpl_5(mac16)[15:0])});
-        //     partial_product.deq();
-        // endrule: rl_mac_16
+        rule rl_mac_32 (mode_r == 'h2);
+            let pp = partial_product.first();
+            mac_output.enq(mac_32(tpl_1(pp), tpl_2(pp)));
+            partial_product.deq();
+        endrule: rl_mac_32
 
-        // rule rl_mac_8;
-        //     let mac_i = mac_inputs.first();
-        //     mac_output.enq({tpl_1(mac_8(tpl_1(mac_i), tpl_2(mac_i), tpl_3(mac_i))),
-        //                     tpl_2(mac_8(tpl_1(mac_i), tpl_2(mac_i), tpl_3(mac_i))),
-        //                     tpl_3(mac_8(tpl_1(mac_i), tpl_2(mac_i), tpl_3(mac_i))),
-        //                     tpl_4(mac_8(tpl_1(mac_i), tpl_2(mac_i), tpl_3(mac_i)))});
-        //     mac_inputs.deq();
-        // endrule
+        rule rl_mac_16 (mode_r == 'h1);
+            let mac16 = partial_product.first();
+            mac_output.enq(mac_16(tpl_1(mac16), tpl_2(mac16)));
+            partial_product.deq();
+        endrule: rl_mac_16
 
-        method Action get_inputs(Bit#(64) multiplicand1, Bit#(64) multiplicand2, Bit#(64) addend);
+        rule rl_mac_8 (mode_r == 'h0);
+            let mac_i = mac_inputs.first();
+            mac_output.enq(mac_8(tpl_1(mac_i), tpl_2(mac_i), tpl_3(mac_i)));
+            mac_inputs.deq();
+        endrule
+
+        method Action get_inputs(Bit#(64) multiplicand1, Bit#(64) multiplicand2, Bit#(64) addend, Bit#(2) mode);
             mac_inputs.enq(tuple3(multiplicand1, multiplicand2, addend));
-            //mode_r <= mode;
+            mode_r <= mode;
         endmethod
 
-        method Bit#(128) mac_result;
-            let final_mac_result = mac_output.first();
-            return final_mac_result;
-        endmethod
-
-        // method Bit#(132) mac_result;
+        // method Bit#(128) mac_result;
         //     let final_mac_result = mac_output.first();
-        //     return {counter, final_mac_result};
+        //     return final_mac_result;
         // endmethod
+
+        method Bit#(132) mac_result;
+            let final_mac_result = mac_output.first();
+            return {counter, final_mac_result};
+        endmethod
 
     endmodule
 
